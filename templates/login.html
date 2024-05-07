@@ -1,0 +1,22 @@
+<!-- login.html -->
+<html>
+<body>
+    <h1>Login</h1>
+    <form method="POST" action="/login">
+        <label>Email:</label>
+        <input type="email" name="email" required>
+        <br>
+        <label>Password:</label>
+        <input type="password" name="password" required>
+        <br>
+        <label>Role:</label>
+        <select name="role" required>
+            <option value="Admin">Admin</option>
+            <option value="Owner">Owner</option>
+            <option value="Reader">Reader</option>
+        </select>
+        <br>
+        <button type="submit">Login</button>
+    </form>
+</body>
+</html>

@@ -1,0 +1,22 @@
+<!-- register.html -->
+<html>
+<body>
+    <h1>Register</h1>
+    <form method="POST" action="/register">
+        <label>Email:</label>
+        <input type="email" name="email" required>
+        <br>
+        <label>Password:</label>
+        <input type="password" name="password" required>
+        <br>
+        <label>Role:</label>
+        <select name="role" required>
+            <option value="Admin">Admin</option>
+            <option value="Owner">Owner</option>
+            <option value="Reader">Reader</option>
+        </select>
+        <br>
+        <button type="submit">Register</button>
+    </form>
+</body>
+</html>
