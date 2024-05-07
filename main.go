@@ -101,28 +101,27 @@ func createLibrary(c *gin.Context) {
 }
 
 func registerUser(c *gin.Context) {
-	var req struct {
-		Email    string `json:"email" binding:"required"`
-		Password string `json:"password" binding:"required"`
-		Role     string `json:"role" binding:"required"`
-	}
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	email := c.PostForm("email")
+	password := c.PostForm("password")
+	role := c.PostForm("role")
+
+	if email == "" || password == "" || role == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email, password, and role are required"})
 		return
 	}
 
 	// Check if the email is already registered
 	var existingUser UserCredential
-	if err := db.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
+	if err := db.Where("email = ?", email).First(&existingUser).Error; err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Email already registered"})
 		return
 	}
 
 	// Create new user
 	newUser := UserCredential{
-		Email:    req.Email,
-		Password: req.Password,
-		Role:     req.Role,
+		Email:    email,
+		Password: password,
+		Role:     role,
 	}
 	if err := db.Create(&newUser).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
@@ -429,7 +428,7 @@ func loginUser(c *gin.Context) {
 		Role     string `json:"role" binding:"required"`
 	}
 	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
 
@@ -447,7 +446,7 @@ func loginUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
+	c.JSON(http.StatusOK, gin.H{"message": "Login successful", "email": req.Email, "role": req.Role})
 }
 
 func main() {
