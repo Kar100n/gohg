@@ -2,19 +2,14 @@ package main
 
 import (
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
 
 var db *gorm.DB
-var sessionSecret = []byte("your-secret-key")
-var store = cookie.NewStore(sessionSecret)
 
 type Library struct {
 	ID   uint   `gorm:"primary_key"`
@@ -34,12 +29,11 @@ type IssueRegistry struct {
 }
 
 type User struct {
-	ID            uint `gorm:"primary_key"`
+	ID            uint
 	Name          string
-	Email         string `gorm:"unique;not null"`
-	Password      string `gorm:"not null"`
-	Role          string `gorm:"not null"`
+	Email         string
 	ContactNumber string
+	Role          string
 	LibID         uint
 }
 
@@ -93,37 +87,6 @@ func createLibrary(c *gin.Context) {
 	}
 
 	c.JSON(200, newLibrary)
-}
-
-func registerUser(c *gin.Context) {
-	email := c.PostForm("email")
-	password := c.PostForm("password")
-	role := c.PostForm("role")
-
-	if email == "" || password == "" || role == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Email, password, and role are required"})
-		return
-	}
-
-	// Check if the email is already registered
-	var existingUser User
-	if err := db.Where("email = ?", email).First(&existingUser).Error; err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Email already registered"})
-		return
-	}
-
-	// Create new user
-	newUser := User{
-		Email:    email,
-		Password: password,
-		Role:     role,
-	}
-	if err := db.Create(&newUser).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "User registered successfully"})
 }
 
 func searchBook(c *gin.Context) {
@@ -393,88 +356,8 @@ func approveOrRejectIssueRequest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Issue request updated successfully"})
 }
 
-func isAuthenticated(role string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		session := sessions.Default(c)
-		sessionRole := session.Get("role")
-		sessionEmail := session.Get("email")
-
-		// Check if the session role is set and matches the expected role
-		if sessionRole != nil && strings.EqualFold(sessionRole.(string), role) {
-			c.Next()
-			return
-		}
-
-		// Check if the session email is set and retrieve the user role from the database
-		if sessionEmail != nil {
-			var user User
-			err := db.Where("email = ?", sessionEmail).First(&user).Error
-			if err != nil {
-				// Handle database query error
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user information"})
-				c.Abort()
-				return
-			}
-
-			if strings.EqualFold(user.Role, role) {
-				// Update the session with the user's role
-				session.Set("role", user.Role)
-				err = session.Save()
-				if err != nil {
-					// Handle session save error
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save session"})
-					c.Abort()
-					return
-				}
-
-				c.Next()
-				return
-			}
-		}
-
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized access"})
-		c.Abort()
-	}
-}
-
-func authenticate(email, password string) bool {
-	var user User
-	if err := db.Where("email = ? AND password = ?", email, password).First(&user).Error; err != nil {
-		return false
-	}
-	return true
-}
-
-func loginUser(c *gin.Context) {
-	var req struct {
-		Email    string `json:"email" binding:"required"`
-		Password string `json:"password" binding:"required"`
-	}
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
-		return
-	}
-
-	if !authenticate(req.Email, req.Password) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-		return
-	}
-
-	session := sessions.Default(c)
-	session.Set("email", req.Email)
-	err := session.Save()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Login successful", "email": req.Email})
-}
-
 func main() {
 	r := gin.Default()
-	r.LoadHTMLGlob("templates/*")
-	r.Use(sessions.Sessions("session", store))
 
 	var err error
 	db, err = gorm.Open("sqlite3", "library.db")
@@ -485,37 +368,17 @@ func main() {
 
 	db.AutoMigrate(&Library{}, &User{}, &BookInventory{}, &RequestEvents{}, &IssueRegistry{})
 
-	r.GET("/login", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "login.html", nil)
-	})
+	r.POST("/libraries", createLibrary)
+	r.POST("/reader/search", searchBook)
+	r.POST("/reader/issue-requests", raiseIssueRequest)
+	r.POST("/admin/books", addBook)
+	r.DELETE("admin/books/:isbn", removeBook)
 
-	r.POST("/login", loginUser)
-
-	r.GET("/register", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "register.html", nil)
-	})
-
-	r.POST("/register", registerUser)
-
-	adminRoutes := r.Group("/admin", isAuthenticated("Admin"))
-	{
-		adminRoutes.POST("/books", addBook)
-		adminRoutes.DELETE("/books/:isbn", removeBook)
-		adminRoutes.PUT("/books/:isbn", updateBook)
-		adminRoutes.GET("/issue-requests", listIssueRequests)
-		adminRoutes.PUT("/issue-requests/:id", approveOrRejectIssueRequest)
-	}
-
-	ownerRoutes := r.Group("/owner", isAuthenticated("Owner"))
-	{
-		ownerRoutes.POST("/libraries", createLibrary)
-	}
-
-	readerRoutes := r.Group("/reader", isAuthenticated("Reader"))
-	{
-		readerRoutes.POST("/search", searchBook)
-		readerRoutes.POST("/issue-requests", raiseIssueRequest)
-	}
+	r.PUT("/admin/books/:isbn", updateBook)
+	r.GET("/admin/issue-requests", listIssueRequests)
+	r.PUT("/admin/issue-requests/:id", approveOrRejectIssueRequest)
 
 	r.Run(":8080")
 }
+
+ok so that worked now I want a few features should we try and implement them without breaking my code ?

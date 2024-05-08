@@ -1,0 +1,61 @@
+Sure, here are the curl commands to test the various API endpoints in your application:
+
+1. **Register a new user**:
+```
+curl -X POST -H "Content-Type: application/x-www-form-urlencoded" -d 'email=user@example.com&password=password&role=Reader' http://localhost:8080/register
+```
+
+2. **Login**:
+```
+curl -X POST -H "Content-Type: application/json" -d '{"email":"user@example.com","password":"password"}' http://localhost:8080/login
+```
+Note: After a successful login, the server will return a session cookie in the response headers. You'll need to include this cookie in subsequent requests requiring authentication.
+
+3. **Create a new library (for Owner role)**:
+```
+curl -X POST -H "Content-Type: application/json" -d '{"name":"My Library"}' -b "session=<session_cookie>" http://localhost:8080/owner/libraries
+```
+Replace `<session_cookie>` with the actual session cookie value returned from the login request.
+
+4. **Add a book (for Admin role)**:
+```
+curl -X POST -H "Content-Type: application/json" -d '{"library_id":1,"isbn":"978-1234567890","title":"Book Title","authors":"Author Name","publisher":"Publisher","version":"1.0","total_copies":10,"available_copies":10}' -b "session=<session_cookie>" http://localhost:8080/admin/books
+```
+
+5. **Search for a book (for Reader role)**:
+```
+curl -X POST -H "Content-Type: application/json" -d '{"title":"Book Title"}' -b "session=<session_cookie>" http://localhost:8080/reader/search
+```
+
+6. **Raise an issue request (for Reader role)**:
+```
+curl -X POST -H "Content-Type: application/json" -d '{"book_id":1,"email":"user@example.com"}' -b "session=<session_cookie>" http://localhost:8080/reader/issue-requests
+```
+
+7. **List all issue requests (for Admin role)**:
+```
+curl -b "session=<session_cookie>" http://localhost:8080/admin/issue-requests
+```
+
+8. **Approve or reject an issue request (for Admin role)**:
+```
+curl -X PUT -H "Content-Type: application/json" -d '{"request_id":1,"approved":true,"approver_id":1,"approval_date":"2023-05-08T12:00:00Z"}' -b "session=<session_cookie>" http://localhost:8080/admin/issue-requests/1
+```
+
+9. **Remove a book (for Admin role)**:
+```
+curl -X DELETE -H "Content-Type: application/json" -d '{"book_id":1}' -b "session=<session_cookie>" http://localhost:8080/admin/books/978-1234567890
+```
+
+10. **Update a book (for Admin role)**:
+```
+curl -X PUT -H "Content-Type: application/json" -d '{"isbn":"978-1234567890","title":"Updated Book Title","authors":"Updated Author Name","publisher":"Updated Publisher","version":"2.0"}' -b "session=<session_cookie>" http://localhost:8080/admin/books/978-1234567890
+```
+
+Note: Make sure to replace `<session_cookie>` with the actual session cookie value returned from the login request, and adjust the request payloads as needed for your testing purposes.
+
+These curl commands cover the main API endpoints in your application, allowing you to test the functionality of creating libraries, managing books, raising and approving issue requests, and more.
+
+
+
+curl -X POST -H "Content-Type: application/json" -d '{"library_id":1,"isbn":"978-1234567890","title":"Book Title","authors":"Author Name","publisher":"Publisher","version":"1.0","total_copies":10,"available_copies":10}' -b "session=MTcxNTEzODQ1OHxEWDhFQVFMX2dBQUJFQUVRQUFBdV80QUFBUVp6ZEhKcGJtY01Cd0FGWlcxaGFXd0djM1J5YVc1bkRCRUFEM1JsYW1GelFHZHRZV2xzTG1OdmJRPT18D6Gy7thTuo9pUIKu0aVGg7cdFV4yUtR3cOShr3wPrfQ=" http://localhost:8080/admin/books
